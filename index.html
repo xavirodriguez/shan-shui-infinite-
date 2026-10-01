@@ -2157,6 +2157,57 @@
         },
       );
 
+      // CLOUDS
+      vegetate(
+        function(x, y) {
+          return Extra.cloud01(x + xoff, y + yoff - h * 0.5 - 40, seed, {
+            len: 100 + Math.random() * 80,
+            wid: 15 + Math.random() * 15,
+          });
+        },
+        function(i, j) {
+          var ns = Noise.noise(i * 0.1, j * 0.1, seed + 100);
+          return i == 0 && j % 6 == 0 && ns * ns < 0.15;
+        },
+        function(veglist, i) {
+          return true;
+        },
+      );
+
+      // BIRDS
+      vegetate(
+        function(x, y) {
+          return Extra.bird01(x + xoff, y + yoff - h * 0.3 - 20, seed, {
+            sca: 0.8 + Math.random() * 0.5,
+            fli: Math.random() < 0.5,
+          });
+        },
+        function(i, j) {
+          var ns = Noise.noise(i * 0.2, j * 0.2, seed + 200);
+          return i == 0 && j % 4 == 0 && ns * ns * ns < 0.08;
+        },
+        function(veglist, i) {
+          return true;
+        },
+      );
+
+      // REEDS
+      vegetate(
+        function(x, y) {
+          return Extra.reeds01(x + xoff, y + yoff, seed, {
+            num: Math.floor(Math.random() * 5) + 4,
+            hei: 20 + Math.random() * 20,
+          });
+        },
+        function(i, j) {
+          var ns = Noise.noise(i * 0.3, j * 0.1, seed + 300);
+          return (j == 0 || j == ptlist[i].length - 1) && ns * ns < 0.1;
+        },
+        function(veglist, i) {
+          return true;
+        },
+      );
+
       //BOTT ROCK
       vegetate(
         function(x, y) {
@@ -3213,7 +3264,23 @@
           pla: pla,
         });
 
+        if (Math.random() < 0.6) {
+          canv += Extra.lantern01(
+            xoff - (wid * Math.pow(0.85, i)) * 0.4,
+            yoff - hoff - hei * 0.3,
+            seed
+          );
+          canv += Extra.lantern01(
+            xoff + (wid * Math.pow(0.85, i)) * 0.4,
+            yoff - hoff - hei * 0.3,
+            seed
+          );
+        }
+
         hoff += hei * 1.5;
+      }
+      if (Math.random() < 0.5) {
+        canv += Extra.flag01(xoff, yoff - hoff, seed, { hei: 20 });
       }
       return canv;
     };
@@ -3257,7 +3324,23 @@
           wei: 1.5,
           per: per,
         });
+        if (Math.random() < 0.6) {
+          canv += Extra.lantern01(
+            xoff - (wid * Math.pow(0.85, i)) * 0.4,
+            yoff - hoff - hei * 0.3,
+            seed
+          );
+          canv += Extra.lantern01(
+            xoff + (wid * Math.pow(0.85, i)) * 0.4,
+            yoff - hoff - hei * 0.3,
+            seed
+          );
+        }
+
         hoff += hei * 1.5;
+      }
+      if (Math.random() < 0.5) {
+        canv += Extra.flag01(xoff, yoff - hoff, seed, { hei: 20 });
       }
       return canv;
     };
@@ -3760,6 +3843,162 @@
 
       canv += hat(toGlobal(pts[1]), toGlobal(pts[2]), { fli: fli });
 
+      return canv;
+    };
+  }();
+
+
+  var Extra = new function() {
+    this.cloud01 = function(x, y, seed, args) {
+      var args = args != undefined ? args : {};
+      var len = args.len != undefined ? args.len : 120;
+      var wid = args.wid != undefined ? args.wid : 20;
+      var col = args.col != undefined ? args.col : "rgba(100,100,100,0.15)";
+      var noi = args.noi != undefined ? args.noi : 0.4;
+      var num = args.num != undefined ? args.num : Math.floor(Math.random() * 3) + 3;
+
+      var canv = "";
+      for (var i = 0; i < num; i++) {
+        var ox = (Math.random() - 0.5) * len * 0.5;
+        var oy = (Math.random() - 0.5) * wid * 0.5;
+        var l = len * (0.6 + Math.random() * 0.4);
+        var w = wid * (0.6 + Math.random() * 0.4);
+        var a = (Math.random() - 0.5) * 0.1;
+        canv += blob(x + ox, y + oy, {
+          len: l,
+          wid: w,
+          ang: a,
+          col: col,
+          noi: noi,
+        });
+      }
+      return canv;
+    };
+
+    this.bird01 = function(x, y, seed, args) {
+      var args = args != undefined ? args : {};
+      var sca = args.sca != undefined ? args.sca : 1;
+      var wid = args.wid != undefined ? args.wid : 1.5;
+      var col = args.col != undefined ? args.col : "rgba(60,60,60,0.7)";
+      var noi = args.noi != undefined ? args.noi : 0.2;
+      var fli = args.fli != undefined ? args.fli : false;
+
+      var dir = fli ? -1 : 1;
+      var span = 10 * sca;
+      var dip = 5 * sca;
+
+      var wingL = div(
+        [
+          [x - span * dir, y - dip],
+          [x - span * 0.5 * dir, y + dip * 0.5],
+          [x, y],
+        ],
+        4,
+      );
+      var wingR = div(
+        [
+          [x, y],
+          [x + span * 0.5 * dir, y + dip * 0.5],
+          [x + span * dir, y - dip],
+        ],
+        4,
+      );
+
+      var canv = "";
+      canv += stroke(wingL, { wid: wid, col: col, noi: noi });
+      canv += stroke(wingR, { wid: wid, col: col, noi: noi });
+      return canv;
+    };
+
+    this.reeds01 = function(x, y, seed, args) {
+      var args = args != undefined ? args : {};
+      var num = args.num != undefined ? args.num : 6;
+      var hei = args.hei != undefined ? args.hei : 40;
+      var wid = args.wid != undefined ? args.wid : 2;
+      var col = args.col != undefined ? args.col : "rgba(70,70,60,0.6)";
+      var noi = args.noi != undefined ? args.noi : 0.3;
+
+      var canv = "";
+      for (var i = 0; i < num; i++) {
+        var ox = (i - num / 2) * 4 + (Math.random() - 0.5) * 3;
+        var h = hei * (0.7 + Math.random() * 0.6);
+        var bend = (Math.random() - 0.5) * 15;
+        var ptlist = div(
+          [
+            [x + ox, y],
+            [x + ox + bend * 0.5, y - h * 0.5],
+            [x + ox + bend, y - h],
+          ],
+          5,
+        );
+        canv += stroke(ptlist, {
+          wid: wid,
+          col: col,
+          noi: noi,
+          fun: function(p) {
+            return 1 - p;
+          },
+        });
+      }
+      return canv;
+    };
+
+    this.lantern01 = function(x, y, seed, args) {
+      var args = args != undefined ? args : {};
+      var rad = args.rad != undefined ? args.rad : 6;
+      var hlen = args.hlen != undefined ? args.hlen : 12;
+      var fil = args.fil != undefined ? args.fil : "rgba(140,130,120,0.6)";
+      var str = args.str != undefined ? args.str : "rgba(40,40,40,0.8)";
+      var col = args.col != undefined ? args.col : "rgba(50,50,50,0.8)";
+
+      var canv = "";
+      var line = div([[x, y], [x, y + hlen]], 3);
+      canv += stroke(line, { wid: 1, col: col, noi: 0.1 });
+
+      var plist = [];
+      var cy = y + hlen + rad;
+      for (var i = 0; i < 8; i++) {
+        var a = (i * Math.PI) / 4 + Math.PI / 8;
+        plist.push([x + rad * Math.cos(a), cy + rad * Math.sin(a)]);
+      }
+      canv += poly(plist, { fil: fil, str: str, wid: 1 });
+
+      var tassel = div([[x, cy + rad], [x, cy + rad + hlen * 0.5]], 3);
+      canv += stroke(tassel, { wid: 1, col: col, noi: 0.1 });
+
+      return canv;
+    };
+
+    this.flag01 = function(x, y, seed, args) {
+      var args = args != undefined ? args : {};
+      var hei = args.hei != undefined ? args.hei : 40;
+      var fw = args.fw != undefined ? args.fw : 25;
+      var fhei = args.fhei != undefined ? args.fhei : 15;
+      var col = args.col != undefined ? args.col : "rgba(60,60,60,0.8)";
+      var fil = args.fil != undefined ? args.fil : "rgba(100,100,100,0.5)";
+      var str = args.str != undefined ? args.str : "rgba(40,40,40,0.8)";
+
+      seed = seed != undefined ? seed : 0;
+      var canv = "";
+
+      var mast = div([[x, y], [x, y - hei]], 5);
+      canv += stroke(mast, { wid: 1.5, col: col, noi: 0.2 });
+
+      var pTop = [x, y - hei];
+      var pTip = [x + fw, y - hei + fhei * 0.5];
+      var pBot = [x, y - hei + fhei];
+
+      var seg1 = div([pTop, pTip], 5);
+      var seg2 = div([pTip, pBot], 5);
+      var seg3 = div([pBot, pTop], 3);
+
+      var clothPts = seg1.concat(seg2).concat(seg3);
+      for (var i = 0; i < clothPts.length; i++) {
+        var ns = Noise.noise(clothPts[i][0] * 0.1, clothPts[i][1] * 0.1, seed);
+        clothPts[i][1] += (ns - 0.5) * 4;
+      }
+
+      canv += poly(clothPts, { fil: fil, str: str, wid: 1 });
       return canv;
     };
   }();
