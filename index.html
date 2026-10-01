@@ -77,12 +77,16 @@
   }
   SEED = "" + new Date().getTime();
   PALETTE_MODE = "ink";
+  PARALLAX_MODE = 1;
   parseArgs({
     seed: function(x) {
       SEED = x == "" ? SEED : x;
     },
     palette: function(x) {
       PALETTE_MODE = x == "" ? "ink" : x;
+    },
+    parallax: function(x) {
+      PARALLAX_MODE = (x === "0" || x === "false") ? 0 : 1;
     },
   });
   Math.seed(SEED);
@@ -171,17 +175,32 @@
     return "#DED9C9";
   }
 
-  function mountainCol(x, yoff) {
+  function getDepth(tag, y) {
+    if (tag === "distmount") {
+      var d = 1.0 - Math.max(0, Math.min(0.15, (y - 200) / 500));
+      return parseFloat(Math.max(0.80, Math.min(1.0, d)).toFixed(3));
+    }
+    var ny = Math.max(250, Math.min(750, y));
+    var t = (ny - 250) / 500.0;
+    var depth = 1.0 - t * 0.85;
+    if (tag === "flatmount" || tag === "boat") {
+      depth = 0.95 - t * 0.85;
+    }
+    return parseFloat(Math.max(0.0, Math.min(1.0, depth)).toFixed(3));
+  }
+
+  function mountainCol(x, yoff, depth) {
     var t = 1 - x;
     var alpha = (Math.random() * 0.3 + 0.1).toFixed(3);
     if (typeof PALETTE_MODE !== "undefined" && PALETTE_MODE === "mono") {
       return "rgba(100,100,100," + (Math.random() * 0.3).toFixed(3) + ")";
     }
-    var dist = Math.max(0, Math.min(1, ((yoff || 500) - 250) / 450));
-    var slateRatio = Math.max(0, Math.min(1, (0.7 - dist) / 0.7));
-
+    if (depth === undefined || depth === null) {
+      depth = getDepth("mount", yoff || 500);
+    }
     var stoneRGB = PALETTE.stone;
     var slateRGB = PALETTE.slate;
+    var fogRGB = PALETTE.fog;
 
     var clampedT = Math.max(0, Math.min(1, t));
     var idx = clampedT * (stoneRGB.length - 1);
@@ -189,19 +208,33 @@
     var i1 = Math.min(i0 + 1, stoneRGB.length - 1);
     var f = idx - i0;
 
-    var r1 = stoneRGB[i0][0] + (stoneRGB[i1][0] - stoneRGB[i0][0]) * f;
-    var g1 = stoneRGB[i0][1] + (stoneRGB[i1][1] - stoneRGB[i0][1]) * f;
-    var b1 = stoneRGB[i0][2] + (stoneRGB[i1][2] - stoneRGB[i0][2]) * f;
+    var rStone = stoneRGB[i0][0] + (stoneRGB[i1][0] - stoneRGB[i0][0]) * f;
+    var gStone = stoneRGB[i0][1] + (stoneRGB[i1][1] - stoneRGB[i0][1]) * f;
+    var bStone = stoneRGB[i0][2] + (stoneRGB[i1][2] - stoneRGB[i0][2]) * f;
 
-    var r2 = slateRGB[i0][0] + (slateRGB[i1][0] - slateRGB[i0][0]) * f;
-    var g2 = slateRGB[i0][1] + (slateRGB[i1][1] - slateRGB[i0][1]) * f;
-    var b2 = slateRGB[i0][2] + (slateRGB[i1][2] - slateRGB[i0][2]) * f;
+    var rSlate = slateRGB[i0][0] + (slateRGB[i1][0] - slateRGB[i0][0]) * f;
+    var gSlate = slateRGB[i0][1] + (slateRGB[i1][1] - slateRGB[i0][1]) * f;
+    var bSlate = slateRGB[i0][2] + (slateRGB[i1][2] - slateRGB[i0][2]) * f;
 
-    var r = Math.round(r1 * (1 - slateRatio) + r2 * slateRatio);
-    var g = Math.round(g1 * (1 - slateRatio) + g2 * slateRatio);
-    var b = Math.round(b1 * (1 - slateRatio) + b2 * slateRatio);
+    var rFog = fogRGB[i0][0] + (fogRGB[i1][0] - fogRGB[i0][0]) * f;
+    var gFog = fogRGB[i0][1] + (fogRGB[i1][1] - fogRGB[i0][1]) * f;
+    var bFog = fogRGB[i0][2] + (fogRGB[i1][2] - fogRGB[i0][2]) * f;
 
-    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+    var r, g, b;
+    if (depth < 0.5) {
+      var ratio = depth / 0.5;
+      r = Math.round(rStone * (1 - ratio) + rSlate * ratio);
+      g = Math.round(gStone * (1 - ratio) + gSlate * ratio);
+      b = Math.round(bStone * (1 - ratio) + bSlate * ratio);
+    } else {
+      var ratio = (depth - 0.5) / 0.5;
+      r = Math.round(rSlate * (1 - ratio) + rFog * ratio);
+      g = Math.round(gSlate * (1 - ratio) + gFog * ratio);
+      b = Math.round(bSlate * (1 - ratio) + bFog * ratio);
+    }
+
+    var dAlpha = depth > 0.6 ? Math.max(0.05, parseFloat(alpha) * (1 - (depth - 0.6) * 0.8)) : alpha;
+    return "rgba(" + r + "," + g + "," + b + "," + dAlpha + ")";
   }
 </script>
 
@@ -4181,6 +4214,22 @@
     }
   }
 
+  var PARALLAX_LAYERS = [
+    "parallax-atmosphere",
+    "parallax-background",
+    "parallax-midground",
+    "parallax-near",
+    "foreground"
+  ];
+
+  function getLayerId(depth) {
+    if (depth >= 0.8) return "parallax-atmosphere";
+    if (depth >= 0.6) return "parallax-background";
+    if (depth >= 0.4) return "parallax-midground";
+    if (depth >= 0.2) return "parallax-near";
+    return "foreground";
+  }
+
   function chunkloader(xmin, xmax) {
     var add = function(nch) {
       if (nch.canv.includes("NaN")) {
@@ -4225,18 +4274,20 @@
       }
 
       for (var i = 0; i < plan.length; i++) {
+        var d = getDepth(plan[i].tag, plan[i].y);
         if (plan[i].tag == "mount") {
           add({
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
-            canv: Mount.mountain(plan[i].x, plan[i].y, i * 2 * Math.random()),
-            //{col:function(x){return "rgba(100,100,100,"+(0.5*Math.random()*plan[i].y/MEM.windy)+")"}}),
+            depth: d,
+            canv: Mount.mountain(plan[i].x, plan[i].y, i * 2 * Math.random(), { depth: d }),
           });
           add({
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y - 10000,
+            depth: d,
             canv: water(plan[i].x, plan[i].y, i * 2),
           });
         } else if (plan[i].tag == "flatmount") {
@@ -4244,6 +4295,7 @@
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
+            depth: d,
             canv: Mount.flatMount(
               plan[i].x,
               plan[i].y,
@@ -4260,6 +4312,7 @@
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
+            depth: d,
             canv: Mount.distMount(plan[i].x, plan[i].y, Math.random() * 100, {
               hei: 150,
               len: randChoice([500, 1000, 1500]),
@@ -4270,6 +4323,7 @@
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
+            depth: d,
             canv: Arch.boat01(plan[i].x, plan[i].y, Math.random(), {
               sca: plan[i].y / 800,
               fli: randChoice([true, false]),
@@ -4280,6 +4334,7 @@
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
+            depth: d,
             canv:
               "<circle cx='" +
               plan[i].x +
@@ -4292,6 +4347,7 @@
             tag: plan[i].tag,
             x: plan[i].x,
             y: plan[i].y,
+            depth: d,
             canv:
               "<circle cx='" +
               plan[i].x +
@@ -4300,26 +4356,37 @@
               "' r='20' stroke='black' fill='green' />",
           });
         }
-        // add ({
-        //   x: plan[i].x,
-        //   y: plan[i].y,
-        //   canv:"<circle cx='"+plan[i].x+"' cy='"+plan[i].y+"' r='20' stroke='black' fill='red' />"
-        // })
       }
     }
   }
 
   function chunkrender(xmin, xmax) {
-    MEM.canv = "";
+    var layersContent = {
+      "parallax-atmosphere": "",
+      "parallax-background": "",
+      "parallax-midground": "",
+      "parallax-near": "",
+      "foreground": ""
+    };
 
     for (var i = 0; i < MEM.chunks.length; i++) {
+      var ch = MEM.chunks[i];
       if (
-        xmin - MEM.cwid < MEM.chunks[i].x &&
-        MEM.chunks[i].x < xmax + MEM.cwid
+        xmin - MEM.cwid < ch.x &&
+        ch.x < xmax + MEM.cwid
       ) {
-        MEM.canv += MEM.chunks[i].canv;
+        var d = ch.depth !== undefined ? ch.depth : getDepth(ch.tag, ch.y);
+        var layerId = getLayerId(d);
+        layersContent[layerId] += ch.canv;
       }
     }
+
+    var fullCanv = "";
+    for (var l = 0; l < PARALLAX_LAYERS.length; l++) {
+      var id = PARALLAX_LAYERS[l];
+      fullCanv += "<g id='" + id + "'>" + layersContent[id] + "</g>";
+    }
+    MEM.canv = fullCanv;
   }
 
   document.addEventListener("mousemove", onMouseUpdate, false);
@@ -4330,6 +4397,50 @@
     mouseX = e.pageX;
     mouseY = e.pageY;
   }
+
+  var PARALLAX_FACTORS = {
+    "parallax-atmosphere": 0.05,
+    "parallax-background": 0.15,
+    "parallax-midground": 0.35,
+    "parallax-near": 0.60,
+    "foreground": 0.85
+  };
+
+  var ticking = false;
+  var currentScrollY = 0;
+
+  function updateParallax(sy) {
+    if (typeof PARALLAX_MODE !== "undefined" && PARALLAX_MODE === 0) {
+      for (var l = 0; l < PARALLAX_LAYERS.length; l++) {
+        var el = document.getElementById(PARALLAX_LAYERS[l]);
+        if (el) {
+          el.style.transform = "none";
+        }
+      }
+      return;
+    }
+    for (var l = 0; l < PARALLAX_LAYERS.length; l++) {
+      var layerId = PARALLAX_LAYERS[l];
+      var factor = PARALLAX_FACTORS[layerId] || 0;
+      var offsetY = (sy * (0.85 - factor) * 0.25).toFixed(2);
+      var offsetX = layerId === "parallax-atmosphere" ? (Math.sin(sy * 0.005) * 6).toFixed(2) : "0";
+      var el = document.getElementById(layerId);
+      if (el) {
+        el.style.transform = "translate3d(" + offsetX + "px, " + offsetY + "px, 0px)";
+      }
+    }
+  }
+
+  window.addEventListener("scroll", function() {
+    currentScrollY = window.scrollY || window.pageYOffset || 0;
+    if (!ticking) {
+      requestAnimationFrame(function() {
+        updateParallax(currentScrollY);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
 
   function calcViewBox() {
     var zoom = 1.142;
@@ -4377,6 +4488,7 @@
       //+ "<circle cx='0' cy='0' r='50' stroke='black' fill='red' />"
       "</g></svg>";
 
+    updateParallax(window.scrollY || window.pageYOffset || 0);
     //setTimeout(update,1000);
   }
 </script>
@@ -4473,7 +4585,7 @@
   var btnHoverCol = "rgba(0,0,0,0.1)";
 </script>
 
-<body style="margin:0">
+<body style="margin:0; min-height: 2400px;">
   <div
     id="SETTING"
     style="
@@ -4624,7 +4736,7 @@
     </script>
   </div>
 
-  <table style="border-bottom: 1px solid rgba(0,0,0,0.1);">
+  <table style="border-bottom: 1px solid rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 10;">
     <tr>
       <td>
         <div
