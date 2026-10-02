@@ -4430,9 +4430,6 @@
         }
       } catch (e) {}
     }
-    if (typeof window !== "undefined" && window.matchMedia) {
-      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    }
     return false;
   }
 
@@ -4449,8 +4446,8 @@
     for (var l = 0; l < PARALLAX_LAYERS.length; l++) {
       var layerId = PARALLAX_LAYERS[l];
       var factor = PARALLAX_FACTORS[layerId] || 0;
-      var offsetY = (sy * (0.85 - factor) * 0.25).toFixed(2);
-      var offsetX = layerId === "parallax-atmosphere" ? (Math.sin(sy * 0.005) * 6).toFixed(2) : "0";
+      var offsetY = (sy * (0.85 - factor)).toFixed(2);
+      var offsetX = layerId === "parallax-atmosphere" ? (Math.sin(sy * 0.005) * 10).toFixed(2) : "0";
       var el = document.getElementById(layerId);
       if (el) {
         el.style.transform = "translate3d(" + offsetX + "px, " + offsetY + "px, 0px)";
