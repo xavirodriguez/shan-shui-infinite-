@@ -2210,10 +2210,38 @@
       // BIRDS
       vegetate(
         function(x, y) {
-          return Extra.bird01(x + xoff, y + yoff - h * 0.3 - 20, seed, {
-            sca: 0.8 + Math.random() * 0.5,
-            fli: Math.random() < 0.5,
-          });
+          var canv = "";
+          var count = Math.floor(normRand(3, 7));
+          var baseSca = 0.8 + Math.random() * 0.5;
+          var flockFli = Math.random() < 0.5;
+          var flockTipo = randChoice(["golondrina", "gaviota", "gorrión"]);
+
+          for (var b = 0; b < count; b++) {
+            var relX = b == 0 ? 0 : normRand(-40, 40);
+            var relY = b == 0 ? 0 : normRand(-25, 25);
+            var birdSca = baseSca * Math.pow(0.85, b);
+            var birdPhase = normRand(-1, 1);
+            var birdAsym = normRand(0.7, 1.3);
+            var opacity = normRand(0.4, 0.9) * (1 - b * 0.08);
+            var col = "rgba(60,60,60," + opacity.toFixed(2) + ")";
+
+            canv += Extra.bird01(
+              x + xoff + relX,
+              y + yoff - h * 0.3 - 20 + relY,
+              seed + b,
+              {
+                sca: birdSca,
+                fli: flockFli,
+                tipo: flockTipo,
+                phase: birdPhase,
+                asym: birdAsym,
+                col: col,
+                wid: normRand(1, 2.5),
+                noi: normRand(0.05, 0.35),
+              }
+            );
+          }
+          return canv;
         },
         function(i, j) {
           var ns = Noise.noise(i * 0.2, j * 0.2, seed + 200);
@@ -3911,36 +3939,111 @@
     this.bird01 = function(x, y, seed, args) {
       var args = args != undefined ? args : {};
       var sca = args.sca != undefined ? args.sca : 1;
-      var wid = args.wid != undefined ? args.wid : 1.5;
-      var col = args.col != undefined ? args.col : "rgba(60,60,60,0.7)";
-      var noi = args.noi != undefined ? args.noi : 0.2;
+      var wid = args.wid != undefined ? args.wid : normRand(1, 2.5);
+      var col = args.col != undefined ? args.col : "rgba(60,60,60," + normRand(0.4, 0.9).toFixed(2) + ")";
+      var noi = args.noi != undefined ? args.noi : normRand(0.05, 0.35);
       var fli = args.fli != undefined ? args.fli : false;
 
+      var phase = args.phase != undefined ? args.phase : normRand(-1, 1);
+      var asym = args.asym != undefined ? args.asym : normRand(0.7, 1.3);
+      var tipo = args.tipo != undefined ? args.tipo : randChoice(["golondrina", "gaviota", "gorrión"]);
+
       var dir = fli ? -1 : 1;
-      var span = 10 * sca;
-      var dip = 5 * sca;
+      var spanBase = (8 + Math.random() * 6) * sca;
+      var spanL = spanBase;
+      var spanR = spanBase * asym;
+
+      var dip;
+      if (tipo == "gaviota") {
+        // gaviota: dip negativo, span grande, alas arqueadas
+        spanL *= 1.3;
+        spanR *= 1.3;
+        dip = (-4 - Math.abs(phase) * 4) * sca;
+      } else if (tipo == "gorrión") {
+        // gorrión: span pequeño, dip positivo, alas redondeadas
+        spanL *= 0.7;
+        spanR *= 0.7;
+        dip = (3 + phase * 3) * sca;
+      } else {
+        // golondrina: alas alargadas, dip según phase
+        spanL *= 1.1;
+        spanR *= 1.1;
+        dip = phase * 5 * sca;
+      }
+
+      var divRes = Math.floor(normRand(3, 8));
+      var jxL = normRand(-2 * sca, 2 * sca);
+      var jyL = normRand(-2 * sca, 2 * sca);
+      var jxR = normRand(-2 * sca, 2 * sca);
+      var jyR = normRand(-2 * sca, 2 * sca);
+
+      var midL_x = x - spanL * 0.5 * dir + jxL;
+      var midL_y = (tipo == "gaviota") ? (y + dip * 0.8 + jyL) : (y + dip * 0.5 + jyL);
+
+      var midR_x = x + spanR * 0.5 * dir + jxR;
+      var midR_y = (tipo == "gaviota") ? (y + dip * 0.8 + jyR) : (y + dip * 0.5 + jyR);
 
       var wingL = div(
         [
-          [x - span * dir, y - dip],
-          [x - span * 0.5 * dir, y + dip * 0.5],
+          [x - spanL * dir, y - dip],
+          [midL_x, midL_y],
           [x, y],
         ],
-        4,
+        divRes,
       );
       var wingR = div(
         [
           [x, y],
-          [x + span * 0.5 * dir, y + dip * 0.5],
-          [x + span * dir, y - dip],
+          [midR_x, midR_y],
+          [x + spanR * dir, y - dip],
         ],
-        4,
+        divRes,
       );
 
       var canv = "";
+
+      // Cuerpo pequeño
+      canv += stroke(
+        div(
+          [
+            [x - 1 * sca * dir, y - 2 * sca],
+            [x, y],
+            [x + 1 * sca * dir, y + 2 * sca],
+          ],
+          3,
+        ),
+        { wid: wid * 1.2, col: col, noi: noi },
+      );
+
+      // Cola bifurcada si es golondrina
+      if (tipo == "golondrina") {
+        var tailL = [
+          [x, y],
+          [x - 3 * sca * dir, y + 6 * sca],
+        ];
+        var tailR = [
+          [x, y],
+          [x + 1 * sca * dir, y + 7 * sca],
+        ];
+        canv += stroke(tailL, { wid: wid * 0.8, col: col, noi: noi });
+        canv += stroke(tailR, { wid: wid * 0.8, col: col, noi: noi });
+      }
+
       canv += stroke(wingL, { wid: wid, col: col, noi: noi });
       canv += stroke(wingR, { wid: wid, col: col, noi: noi });
-      return canv;
+
+      // Animación SMIL
+      var moveDist = (dir > 0 ? 1 : -1) * (20 + Math.random() * 30);
+      var animDur = (1.5 + Math.random() * 1.5).toFixed(2) + "s";
+      var flapDur = (0.4 + Math.random() * 0.4).toFixed(2) + "s";
+
+      var res = "<g style='transform-origin: " + x.toFixed(1) + "px " + y.toFixed(1) + "px;'>";
+      res += "<animateTransform attributeName='transform' type='translate' values='0,0; " + moveDist + ",-5; 0,0' dur='" + animDur + "' repeatCount='indefinite' />";
+      res += "<animateTransform attributeName='transform' type='scale' values='1,1; 1,0.65; 1,1' additive='sum' dur='" + flapDur + "' repeatCount='indefinite' />";
+      res += canv;
+      res += "</g>";
+
+      return res;
     };
 
     this.reeds01 = function(x, y, seed, args) {
